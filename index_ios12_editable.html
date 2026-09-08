@@ -1,0 +1,68 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kitchen">
+<title>Kitchen Dashboard</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;color:#fff}
+body{background:linear-gradient(125deg,#ff7eb3 0%,#ff758c 24%,#8f94fb 52%,#65d6ce 76%,#ffd86f 100%);background-size:220% 220%}
+*{box-sizing:border-box}.wrap{height:100%;padding:22px 28px;display:flex;gap:18px}.left{width:56%;display:flex;flex-direction:column}.right{width:44%;display:flex;flex-direction:column;gap:13px}
+.clock{font-size:90px;line-height:.95;font-weight:300;letter-spacing:-4px}.date{font-size:26px;font-weight:600;margin-top:10px}.greeting{font-size:18px;margin-top:6px}
+.card{background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.38);border-radius:22px;padding:16px}.today{margin-top:auto;max-height:250px;overflow:auto}.reminders{flex:1;overflow:auto}
+.head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.head h2{margin:0;font-size:18px;text-transform:uppercase;letter-spacing:2px}
+.btn{border:0;border-radius:10px;padding:8px 11px;background:#fff;color:#6658aa;font-size:15px;font-weight:bold;min-height:38px}
+.event,.remrow{display:flex;align-items:center;padding:9px 0;border-top:1px solid rgba(255,255,255,.25)}.time{width:92px;font-weight:bold}.name{flex:1;font-size:17px}.dot{width:9px;height:9px;border-radius:50%;background:#fff;margin-right:9px}.del{border:0;background:transparent;color:#fff;font-size:21px;padding:5px 8px}
+.monthTitle{font-size:23px;font-weight:bold}.monthHead{display:flex;justify-content:space-between;margin-bottom:8px}.grid{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;gap:3px}.dow{font-size:11px;font-weight:bold;opacity:.8}.day{height:28px;line-height:28px;border-radius:50%;font-size:14px}.todayDay{background:#fff;color:#735fc7;font-weight:bold}.empty{opacity:.75;font-style:italic;padding:9px 0}.small{font-size:12px;opacity:.75}
+.overlay{display:none;position:absolute;left:0;top:0;width:100%;height:100%;background:rgba(30,25,65,.72);z-index:20}.overlay.open{display:block}.formbox{width:440px;max-width:86%;margin:65px auto 0;background:#fff;color:#3d3856;border-radius:22px;padding:22px}.formbox h3{font-size:24px;margin:0 0 14px}.formbox label{display:block;font-weight:bold;margin:10px 0 4px}.formbox input{display:block;width:100%;font-size:18px;padding:11px;border:1px solid #bbb;border-radius:9px;-webkit-appearance:none}.actions{text-align:right;margin-top:18px}.actions .btn{margin-left:8px}.cancel{background:#e8e8e8;color:#555}.error{color:#b00020;font-size:13px;min-height:18px;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<section class="left">
+<div id="clock" class="clock">12:00 PM</div><div id="date" class="date"></div><div id="greeting" class="greeting"></div>
+<div class="card today"><div class="head"><h2>Today</h2><button id="openEvent" class="btn" type="button">+ Add Event</button></div><div id="events"><div class="empty">Loading…</div></div></div>
+</section>
+<section class="right">
+<div class="card"><div class="monthHead"><span id="monthTitle" class="monthTitle"></span><span>📅</span></div><div id="calendar" class="grid"></div></div>
+<div class="card reminders"><div class="head"><h2>Reminders</h2><button id="openReminder" class="btn" type="button">+ Add</button></div><div id="reminders"><div class="empty">Loading…</div></div><div class="small">Saved on this iPad.</div></div>
+</section></div>
+
+<div id="eventOverlay" class="overlay"><div class="formbox"><h3>Add Event</h3>
+<label for="eventTime">Time</label><input id="eventTime" type="text" placeholder="Example: 3:30 PM">
+<label for="eventName">Event</label><input id="eventName" type="text" placeholder="Example: Get off work">
+<div id="eventError" class="error"></div><div class="actions"><button id="cancelEvent" class="btn cancel" type="button">Cancel</button><button id="saveEvent" class="btn" type="button">Save Event</button></div></div></div>
+
+<div id="remOverlay" class="overlay"><div class="formbox"><h3>Add Reminder</h3>
+<label for="remName">Reminder</label><input id="remName" type="text" placeholder="Example: Pick up groceries">
+<div id="remError" class="error"></div><div class="actions"><button id="cancelRem" class="btn cancel" type="button">Cancel</button><button id="saveRem" class="btn" type="button">Save Reminder</button></div></div></div>
+
+<script>
+(function(){
+var EKEY="kitchen_events_2",RKEY="kitchen_reminders_2",events=[],reminders=[];
+function byId(x){return document.getElementById(x)}
+function trim(s){return String(s||"").replace(/^\s+|\s+$/g,"")}
+function esc(s){var d=document.createElement("div");d.appendChild(document.createTextNode(String(s||"")));return d.innerHTML}
+function store(k,v){try{window.localStorage.setItem(k,JSON.stringify(v));return true}catch(e){return false}}
+function load(k){try{var x=window.localStorage.getItem(k);return x?JSON.parse(x):[]}catch(e){return[]}}
+function clock(){var d=new Date(),h=d.getHours(),m=d.getMinutes(),ap=h>=12?"PM":"AM",hh=h%12||12,days=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"],mos=["January","February","March","April","May","June","July","August","September","October","November","December"];byId("clock").innerHTML=hh+":"+(m<10?"0":"")+m+" "+ap;byId("date").innerHTML=days[d.getDay()]+", "+mos[d.getMonth()]+" "+d.getDate();byId("greeting").innerHTML=h<12?"Good morning ☀️":h<18?"Good afternoon 🌈":"Good evening ✨"}
+function calendar(){var d=new Date(),y=d.getFullYear(),m=d.getMonth(),td=d.getDate(),mos=["January","February","March","April","May","June","July","August","September","October","November","December"],names=["S","M","T","W","T","F","S"],o="",i,f,c;byId("monthTitle").innerHTML=mos[m]+" "+y;for(i=0;i<7;i++)o+='<div class="dow">'+names[i]+'</div>';f=new Date(y,m,1).getDay();c=new Date(y,m+1,0).getDate();for(i=0;i<f;i++)o+='<div class="day"></div>';for(i=1;i<=c;i++)o+='<div class="day '+(i===td?"todayDay":"")+'">'+i+'</div>';byId("calendar").innerHTML=o}
+function renderEvents(){var o="",i;if(!events.length)o='<div class="empty">No events yet — tap + Add Event.</div>';for(i=0;i<events.length;i++)o+='<div class="event"><span class="dot"></span><span class="time">'+esc(events[i].time||"All day")+'</span><span class="name">'+esc(events[i].name)+'</span><button type="button" class="del eventDelete" data-index="'+i+'">×</button></div>';byId("events").innerHTML=o;bindDelete()}
+function renderRem(){var o="",i;if(!reminders.length)o='<div class="empty">No reminders yet — tap + Add.</div>';for(i=0;i<reminders.length;i++)o+='<div class="remrow"><span style="margin-right:8px">○</span><span class="name">'+esc(reminders[i])+'</span><button type="button" class="del remDelete" data-index="'+i+'">×</button></div>';byId("reminders").innerHTML=o;bindDelete()}
+function bindDelete(){var a=document.getElementsByClassName("eventDelete"),i;for(i=0;i<a.length;i++)a[i].onclick=function(){var n=parseInt(this.getAttribute("data-index"),10);events.splice(n,1);store(EKEY,events);renderEvents()};a=document.getElementsByClassName("remDelete");for(i=0;i<a.length;i++)a[i].onclick=function(){var n=parseInt(this.getAttribute("data-index"),10);reminders.splice(n,1);store(RKEY,reminders);renderRem()}}
+function open(id){byId(id).className="overlay open"}function close(id){byId(id).className="overlay"}
+byId("openEvent").onclick=function(){byId("eventError").innerHTML="";open("eventOverlay")};
+byId("cancelEvent").onclick=function(){close("eventOverlay")};
+byId("saveEvent").onclick=function(){var n=trim(byId("eventName").value),t=trim(byId("eventTime").value);if(!n){byId("eventError").innerHTML="Please enter an event name.";return}events.push({time:t||"All day",name:n});if(!store(EKEY,events)){byId("eventError").innerHTML="Safari could not save locally. Make sure Private Browsing is off.";return}byId("eventName").value="";byId("eventTime").value="";close("eventOverlay");renderEvents()};
+byId("openReminder").onclick=function(){byId("remError").innerHTML="";open("remOverlay")};
+byId("cancelRem").onclick=function(){close("remOverlay")};
+byId("saveRem").onclick=function(){var n=trim(byId("remName").value);if(!n){byId("remError").innerHTML="Please enter a reminder.";return}reminders.push(n);if(!store(RKEY,reminders)){byId("remError").innerHTML="Safari could not save locally. Make sure Private Browsing is off.";return}byId("remName").value="";close("remOverlay");renderRem()};
+clock();calendar();setInterval(clock,1000);setInterval(calendar,60000);
+/* Safari 12-era WebKit could have storage timing quirks; defer initial access. */
+setTimeout(function(){events=load(EKEY);reminders=load(RKEY);renderEvents();renderRem()},150);
+})();
+</script>
+</body></html>
