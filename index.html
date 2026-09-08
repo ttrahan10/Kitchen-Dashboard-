@@ -40,6 +40,11 @@ animation:bg 18s ease infinite;
 .note{flex:1}
 .note p{font-size:18px;line-height:1.45;margin:7px 0;opacity:.95}
 .small{font-size:13px!important;opacity:.72!important;margin-top:12px!important}
+
+button{border:0;border-radius:10px;padding:7px 10px;background:rgba(255,255,255,.9);color:#6658aa;font-weight:bold;float:right}
+.del{float:none;background:transparent;color:white;font-size:18px;padding:2px 8px}
+.remrow{padding:9px 0;border-top:1px solid rgba(255,255,255,.24);font-size:17px}
+.empty{opacity:.75;font-style:italic;padding:10px 0}
 </style>
 </head>
 <body>
@@ -50,9 +55,8 @@ animation:bg 18s ease infinite;
     <div id="greeting" class="greeting">Good afternoon 🌈</div>
 
     <div class="card today">
-      <h2>Today</h2>
-      <div class="event"><span class="dot"></span><span class="time">All day</span><span class="name">Kitchen dashboard is ready ✨</span></div>
-      <div class="event"><span class="dot"></span><span class="time">Tap edit</span><span class="name">Replace these with your events</span></div>
+      <h2>Today <button onclick="addEvent()">+ Add Event</button></h2>
+      <div id="events"></div>
     </div>
   </section>
 
@@ -62,10 +66,9 @@ animation:bg 18s ease infinite;
       <div id="calendar" class="grid"></div>
     </div>
     <div class="card note">
-      <h2>Home</h2>
-      <p>🌤️ Weather can be added after the dashboard is hosted online.</p>
-      <p>📝 This panel can become reminders, groceries, birthdays, or upcoming events.</p>
-      <p class="small">Designed for landscape mode on an older iPad.</p>
+      <h2>Reminders <button onclick="addReminder()">+ Add</button></h2>
+      <div id="reminders"></div>
+      <p class="small">Your changes save on this iPad.</p>
     </div>
   </section>
 </div>
@@ -92,7 +95,34 @@ function makeCal(){
  for(i=1;i<=count;i++) out+='<div class="day '+(i===today?'todayDay':'')+'">'+i+'</div>';
  el.innerHTML=out;
 }
-tick();makeCal();setInterval(tick,1000);setInterval(makeCal,60000);
+
+function load(k){try{return JSON.parse(localStorage.getItem(k)||"[]")}catch(e){return[]}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+function safe(s){var x=document.createElement("div");x.appendChild(document.createTextNode(s));return x.innerHTML}
+function renderEvents(){
+ var a=load("kd_events"),o="",i;
+ if(!a.length)o='<div class="empty">No events yet. Tap + Add Event.</div>';
+ for(i=0;i<a.length;i++)o+='<div class="event"><span class="dot"></span><span class="time">'+safe(a[i].time)+'</span><span class="name">'+safe(a[i].name)+'</span><button class="del" onclick="delEvent('+i+')">×</button></div>';
+ document.getElementById("events").innerHTML=o;
+}
+function addEvent(){
+ var t=prompt("What time? Example: 3:30 PM",""), n;
+ if(t===null)return;
+ n=prompt("What is the event?","");
+ if(!n)return;
+ var a=load("kd_events");a.push({time:t||"All day",name:n});save("kd_events",a);renderEvents();
+}
+function delEvent(i){var a=load("kd_events");if(confirm("Remove this event?")){a.splice(i,1);save("kd_events",a);renderEvents()}}
+function renderReminders(){
+ var a=load("kd_reminders"),o="",i;
+ if(!a.length)o='<div class="empty">No reminders yet. Tap + Add.</div>';
+ for(i=0;i<a.length;i++)o+='<div class="remrow">○ '+safe(a[i])+' <button class="del" onclick="delReminder('+i+')">×</button></div>';
+ document.getElementById("reminders").innerHTML=o;
+}
+function addReminder(){var n=prompt("Add a reminder:","");if(!n)return;var a=load("kd_reminders");a.push(n);save("kd_reminders",a);renderReminders()}
+function delReminder(i){var a=load("kd_reminders");if(confirm("Remove this reminder?")){a.splice(i,1);save("kd_reminders",a);renderReminders()}}
+
+tick();makeCal();renderEvents();renderReminders();setInterval(tick,1000);setInterval(makeCal,60000);
 })();
 </script>
 </body>
